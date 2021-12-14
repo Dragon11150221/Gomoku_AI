@@ -84,8 +84,9 @@ class GomokuSimulationPlayer(object):
         The genmove function called by gtp_connection
         """
         moves=GoBoardUtil.generate_legal_moves_gomoku(board)
-        moves = self.sort_value_moves(moves)
         toplay=board.current_player
+        moves = self.sort_value_moves(moves,toplay, board)
+        self.best_move = moves[0]
         best_result, best_move=-1.1, None
         best_move=moves[0]
         wins = np.zeros(len(moves))
@@ -111,8 +112,7 @@ class GomokuSimulationPlayer(object):
         assert(best_move is not None)
         return best_move
 
-    def point_weight(self, point):
-        color = self.current_player
+    def point_weight(self, point, color, board):
         check_list = [-1, 1, -self.NS, self.NS, -self.NS-1, - self.NS + 1, + self.NS - 1, + self.NS + 1]
         weight = 0
         for direction in check_list:
@@ -121,9 +121,9 @@ class GomokuSimulationPlayer(object):
             temp_weight = 0
             for i in range(4):
                 next = point + direction*(i+1)
-                if next >= len(self.board):
+                if next >= len(board):
                     break
-                if self.get_color(next) == color:
+                if board.get_color(next) == color:
                     temp_weight += a
                     a *= 3
                     if i == b-1:
@@ -132,10 +132,10 @@ class GomokuSimulationPlayer(object):
             weight += temp_weight
         return weight
 
-    def sort_value_moves(self,value_moves):
+    def sort_value_moves(self,value_moves,toplay, board):
         move_weight = dict()
         for move in value_moves:
-            weight = self.point_weight(move)
+            weight = self.point_weight(move,toplay, board)
             move_weight[move] = weight
 
 
