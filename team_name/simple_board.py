@@ -14,6 +14,7 @@ from board_util import GoBoardUtil, BLACK, WHITE, EMPTY, BORDER, \
                        PASS, is_black_white, coord_to_point, where1d, \
                        MAXSIZE, NULLPOINT
 import alphabeta
+import random
 
 class SimpleGoBoard(object):
 
@@ -35,7 +36,7 @@ class SimpleGoBoard(object):
             return False
         if point == self.ko_recapture:
             return False
-            
+
         # General case: detect captures, suicide
         opp_color = GoBoardUtil.opponent(color)
         self.board[point] = color
@@ -87,6 +88,7 @@ class SimpleGoBoard(object):
         self.liberty_of = np.full(self.maxpoint, NULLPOINT, dtype = np.int32)
         self._initialize_empty_points(self.board)
         self._initialize_neighbors()
+        self.moves = []
 
     def copy(self):
         b = SimpleGoBoard(self.size)
@@ -102,7 +104,7 @@ class SimpleGoBoard(object):
         assert row >= 1
         assert row <= self.size
         return row * self.NS + 1
-        
+
     def _initialize_empty_points(self, board):
         """
         Fills points on the board with EMPTY
@@ -120,7 +122,7 @@ class SimpleGoBoard(object):
             if self.board[nb] != BORDER:
                 nbs.append(nb)
         return nbs
-            
+
     def _initialize_neighbors(self):
         """
         precompute neighbor array.
@@ -132,7 +134,7 @@ class SimpleGoBoard(object):
                 self.neighbors.append([])
             else:
                 self.neighbors.append(self._on_board_neighbors(point))
-        
+
     def is_eye(self, point, color):
         """
         Check if point is a simple eye for color
@@ -149,7 +151,7 @@ class SimpleGoBoard(object):
             elif self.board[d] == opp_color:
                 false_count += 1
         return false_count <= 1 - at_edge # 0 at edge, 1 in center
-    
+
     def _is_surrounded(self, point, color):
         """
         check whether empty point is surrounded by stones of color.
@@ -194,7 +196,7 @@ class SimpleGoBoard(object):
         """
         Find the block of given stone
         Returns a board of boolean markers which are set for
-        all the points in the block 
+        all the points in the block
         """
         marker = np.full(self.maxpoint, False, dtype = bool)
         pointstack = [stone]
@@ -213,11 +215,11 @@ class SimpleGoBoard(object):
     def _fast_liberty_check(self, nb_point):
         lib = self.liberty_of[nb_point]
         if lib != NULLPOINT and self.get_color(lib) == EMPTY:
-            return True # quick exit, block has a liberty  
+            return True # quick exit, block has a liberty
         if self._stone_has_liberty(nb_point):
             return True # quick exit, no need to look at whole block
         return False
-        
+
     def _detect_capture(self, nb_point):
         """
         Check whether opponent block on nb_point is captured.
@@ -227,7 +229,7 @@ class SimpleGoBoard(object):
             return False
         opp_block = self._block_of(nb_point)
         return not self._has_liberty(opp_block)
-    
+
     def _detect_and_process_capture(self, nb_point):
         """
         Check whether opponent block on nb_point is captured.
@@ -244,7 +246,7 @@ class SimpleGoBoard(object):
         captures = list(where1d(opp_block))
         self.board[captures] = EMPTY
         self.liberty_of[captures] = NULLPOINT
-        single_capture = None 
+        single_capture = None
         if len(captures) == 1:
             single_capture = nb_point
         return single_capture
@@ -264,7 +266,7 @@ class SimpleGoBoard(object):
             return False
         if point == self.ko_recapture:
             return False
-            
+
         # General case: deal with captures, suicide, and next ko point
         opp_color = GoBoardUtil.opponent(color)
         in_enemy_eye = self._is_surrounded(point, opp_color)
@@ -295,33 +297,33 @@ class SimpleGoBoard(object):
             if self.get_color(nb) == color:
                 nbc.append(nb)
         return nbc
-        
+
     def find_neighbor_of_color(self, point, color):
         """ Return one neighbor of point of given color, or None """
         for nb in self.neighbors[point]:
             if self.get_color(nb) == color:
                 return nb
         return None
-        
+
     def _neighbors(self, point):
         """ List of all four neighbors of the point """
         return [point - 1, point + 1, point - self.NS, point + self.NS]
 
     def _diag_neighbors(self, point):
         """ List of all four diagonal neighbors of point """
-        return [point - self.NS - 1, 
-                point - self.NS + 1, 
-                point + self.NS - 1, 
+        return [point - self.NS - 1,
+                point - self.NS + 1,
+                point + self.NS - 1,
                 point + self.NS + 1]
-    
+
     def _point_to_coord(self, point):
         """
         Transform point index to row, col.
-        
+
         Arguments
         ---------
         point
-        
+
         Returns
         -------
         x , y : int
@@ -337,7 +339,7 @@ class SimpleGoBoard(object):
             Check whether it is legal for color to play on point, for the game of gomoku
             """
         return self.board[point] == EMPTY
-    
+
     def play_move_gomoku(self, point, color):
         """
             Play a move of color on point, for the game of gomoku
@@ -350,7 +352,7 @@ class SimpleGoBoard(object):
         self.board[point] = color
         self.current_player = GoBoardUtil.opponent(color)
         return True
-        
+
     def _point_direction_check_connect_gomoko(self, point, shift):
         """
         Check if the point has connect5 condition in a direction
@@ -380,7 +382,7 @@ class SimpleGoBoard(object):
                 break
         assert count <= 5
         return count == 5
-    
+
     def point_check_game_end_gomoku(self, point):
         """
             Check if the point causes the game end for the game of Gomoko.
@@ -388,32 +390,32 @@ class SimpleGoBoard(object):
         # check horizontal
         if self._point_direction_check_connect_gomoko(point, 1):
             return True
-        
+
         # check vertical
         if self._point_direction_check_connect_gomoko(point, self.NS):
             return True
-        
+
         # check y=x
         if self._point_direction_check_connect_gomoko(point, self.NS + 1):
             return True
-        
+
         # check y=-x
         if self._point_direction_check_connect_gomoko(point, self.NS - 1):
             return True
-        
+
         return False
-    
+
     def check_game_end_gomoku(self):
         """
             Check if the game ends for the game of Gomoku.
             """
         white_points = where1d(self.board == WHITE)
         black_points = where1d(self.board == BLACK)
-        
+
         for point in white_points:
             if self.point_check_game_end_gomoku(point):
                 return True, WHITE
-    
+
         for point in black_points:
             if self.point_check_game_end_gomoku(point):
                 return True, BLACK
@@ -487,14 +489,14 @@ class SimpleGoBoard(object):
                 break
             for direction in range(0,4):
                     self.check_pattern(point,'',direction_x[direction],direction_y[direction],moveSet,patternList,color,flag)
-        
+
         i=0
         while i<4 and not bool(moveSet[i]): i+=1
         if i==4:
             return None
         else:
             return i, list(moveSet[i])
-            
+
     def list_solve_point(self):
         """
         1. direct winning point xxxx. x.xxx xx.xx
@@ -515,7 +517,7 @@ class SimpleGoBoard(object):
                 break
             for direction in range(0,4):
                     self.check_pattern(point,'',direction_x[direction],direction_y[direction],moveSet,patternList,color,flag)
-        
+
         i=0
         while i<4 and not bool(moveSet[i]):
             i+=1
@@ -523,3 +525,116 @@ class SimpleGoBoard(object):
             return None
         else:
             return list(moveSet[i])
+
+    ###############################################################
+    def undoMove(self):
+        location = self.moves.pop()
+        self.board[location] = EMPTY
+        self.current_player = GoBoardUtil.opponent(self.current_player)
+
+    def resetToMoveNumber(self, moveNr):
+        numUndos = self.moveNumber() - moveNr
+        assert numUndos >= 0
+        for _ in range(numUndos):
+            self.undoMove()
+        assert self.moveNumber() == moveNr
+
+    def moveNumber(self):
+        return len(self.moves)
+
+    def endOfGame(self):
+        return len(self.get_empty_points()) == 0
+
+    def simulate(self):
+        i = 0
+        if not self.endOfGame():
+            allMoves = self.get_empty_points()
+            random.shuffle(allMoves)
+
+            while not self.endOfGame():
+                self.play_move(allMoves[i], self.current_player)
+                i += 1
+        return self.detect_five_in_a_row(), i
+
+    def explore_five(self,point,block):
+        result = False
+        if block:
+            winner = WHITE + BLACK - self.current_player
+            self.current_player = WHITE + BLACK - self.current_player
+        else:
+            winner = self.current_player
+        self.play_move(point,self.current_player)
+        if self.detect_five_in_a_row() == winner:
+            result = True
+        self.undoMove()
+        if block:
+            self.current_player = WHITE + BLACK - self.current_player
+        return result
+
+    def explore_four(self,point):
+        result = False
+        count = 0
+
+        winner = self.current_player
+        legal_moves = self.get_empty_points()
+
+        self.play_move(point,self.current_player)
+        legal_moves = np.delete(legal_moves,np.where(legal_moves == point))
+
+        for move in legal_moves:
+            self.current_player = WHITE + BLACK - self.current_player
+            self.play_move(move,self.current_player)
+            if self.detect_five_in_a_row() == winner:
+                count += 1
+            self.undoMove()
+            self.current_player = WHITE + BLACK - self.current_player
+            self.undoMove()
+        if count > 1:
+            result = True
+        return result
+
+    def explore_block_four(self,point):
+
+        self.play_move(point,self.current_player)
+        for move in self.get_empty_points():
+            if self.explore_four(move):
+                self.undoMove()
+                return False
+        self.undoMove()
+        return True
+
+    def policy(self,type):
+        action_list = []
+        if type == 'Win':
+            legal_moves = self.get_empty_points()
+            for move in legal_moves:
+                if self.explore_five(move,False):
+                    action_list.append(move)
+            return action_list
+        elif type == 'BlockWin':
+            legal_moves = self.get_empty_points()
+            for move in legal_moves:
+                if self.explore_five(move, True):
+                    action_list.append(move)
+            return action_list
+        elif type == 'OpenFour':
+            legal_moves = self.get_empty_points()
+            for move in legal_moves:
+                if self.explore_four(move):
+                    action_list.append(move)
+            return action_list
+        elif type == 'BlockOpenFour':
+            block = False
+            legal_moves = self.get_empty_points()
+            self.current_player = WHITE + BLACK - self.current_player
+            for move in legal_moves:
+                if self.explore_four(move):
+                    block = True
+            self.current_player = WHITE + BLACK - self.current_player
+            if block:
+                for move in legal_moves:
+                    if self.explore_block_four(move):
+                        action_list.append(move)
+            return action_list
+        else:
+            return self.get_empty_points()

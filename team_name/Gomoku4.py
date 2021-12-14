@@ -86,34 +86,22 @@ class GomokuSimulationPlayer(object):
         moves=GoBoardUtil.generate_legal_moves_gomoku(board)
         toplay=board.current_player
         moves = self.sort_value_moves(moves,toplay, board)
+        print(moves)
         self.best_move = moves[0]
-        best_result, best_move=-1.1, None
-        best_move=moves[0]
-        wins = np.zeros(len(moves))
-        visits = np.zeros(len(moves))
-        while True:
-            for i, move in enumerate(moves):
-                play_move(board, move, toplay)
-                res=game_result(board)
-                if res == toplay:
-                    undo(board, move)
-                    #This move is a immediate win
-                    self.best_move=move
-                    return move
-                ret=self._do_playout(board, toplay)
-                wins[i] += ret
-                visits[i] += 1
-                win_rate = wins[i] / visits[i]
-                if win_rate > best_result:
-                    best_result=win_rate
-                    best_move=move
-                    self.best_move=best_move
-                undo(board, move)
-        assert(best_move is not None)
+
+        POSSIBLE_TYPES = ['Win', 'BlockWin', 'OpenFour', 'BlockOpenFour', 'Random']
+        for type in POSSIBLE_TYPES:
+            action_list = board.policy(type)
+            if len(action_list) != 0:
+                best_move = action_list[0]
+                self.best_move = action_list[0]
+
+
+
         return best_move
 
     def point_weight(self, point, color, board):
-        check_list = [-1, 1, -self.NS, self.NS, -self.NS-1, - self.NS + 1, + self.NS - 1, + self.NS + 1]
+        check_list = [-1, 1, -board.NS, board.NS, -board.NS-1, - board.NS + 1, + board.NS - 1, + board.NS + 1]
         weight = 0
         for direction in check_list:
             a = 1
@@ -121,7 +109,7 @@ class GomokuSimulationPlayer(object):
             temp_weight = 0
             for i in range(4):
                 next = point + direction*(i+1)
-                if next >= len(board):
+                if next >= len(board.board):
                     break
                 if board.get_color(next) == color:
                     temp_weight += a
